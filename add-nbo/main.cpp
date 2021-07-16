@@ -5,23 +5,29 @@
 
 int main(int argc, char* argv[])
 {
-    printf("number of input file = %d\n", argc);
-    printf("input file name is = %s, %s\n", argv[1], argv[2]);
+    printf("----------------------\n");
+    printf("|LIM CHANG HYEON_MADE|\n");
+    printf("----------------------\n");
+    uint32_t num1, num2, result;
 
-    FILE* thousand = fopen(argv[1], "rb");
-    FILE* five_hundred = fopen(argv[2], "rb");
+    FILE *thousand = fopen(argv[1], "r");
+    fread(&num1, sizeof(num1), 1, thousand);
+    num1 = ntohl(num1);
 
-    uint32_t num1 = fread(&num1, sizeof(thousand), 1, thousand);
-    uint32_t num2 = fread(&num2, sizeof(five_hundred), 1, five_hundred);
+    FILE *five_hundred = fopen(argv[2], "r");
+    fread(&num2, sizeof(num2), 1, five_hundred);
+    num2 = ntohl(num2);
 
-    printf("num1 = 0x%x\n", num1);
-    printf("num2 = 0x%x\n", num2);
+    result = num1+num2;
+    printf("%s = 0x%08x\n", argv[1], num1);
+    printf("%s = 0x%08x\n", argv[2], num2);
 
-    uint32_t result = ntohl(num1) + ntohl(num2);
-    printf("===================================\n");
-    printf("result = 0x%x\n", result);
-    printf("===================================\n");
-    printf("1000(0x3e8) + 500(0x1ft) = 1500(0x%x)", result);
+    printf("%d(0x%08x) + %d(0x%08x) = %d(0x%08x)\n", num1, num1, num2, num2, result, result);
+
+    if (fclose(thousand)| fclose(five_hundred))
+        perror ("fclose error");
+    else
+        printf("closed file successfully..");
 
     return 0;
 }
