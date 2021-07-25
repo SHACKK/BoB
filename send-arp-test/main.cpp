@@ -49,6 +49,31 @@ int send_arp_packet(int type, char* dev, char* eth_dmac, char* eth_smac, char* a
     pcap_close(handle);
 }
 
+Mac receive_arp_packet(char* dev) {
+    char errbuf[PCAP_ERRBUF_SIZE];
+    pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, 1, errbuf);
+
+    while (true) {
+        struct pcap_pkthdr* header;
+        const u_char* packet;
+        int res = pcap_next_ex(handle, &header, &packet);
+        if (res == 0) continue;
+        if (res == PCAP_ERROR || res == PCAP_ERROR_BREAK) {
+            printf("packet_next_ex return %d(%s)\n", res, pcap_geterr(handle));
+            continue;
+        }
+
+        struct EthHdr* eth_hdr = (struct EthHdr*)(packet);
+        struct ArpHdr* arp_hdr = (struct ArpHdr*)(packet+14);
+
+        if (ntohs(eth_hdr->type_) == 2054){
+            return arp_hdr->smac_;
+        }
+
+    }
+    pcap_close(handle);
+}
+
 void usage() {
     printf("syntax: send-arp-test <interface> <sender ip> <target ip> ... \n");
     printf("sample: send-arp-test wlan0 192.168.~.~ 192.168.~.~ \n");
@@ -70,7 +95,9 @@ int main(int argc, char* argv[]) {
     char* my_ip = "192.168.0.7";
 
     send_arp_packet(1, dev, what_mac, my_mac, my_mac, my_ip, tmac, sender_ip);
-    // accept arp reply packet
+
+    Mac sender_mac = receive_arp_packet(dev);
+
     send_arp_packet(2, dev, sender_mac, my_mac, my_mac, target_ip, sender_mac, sender_ip);
 
 
