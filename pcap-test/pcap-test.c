@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
         if (ntohs(eth_header->ether_type)==2048) { //이더넷 Type 0248 = 0x0800 (ipv4)
             if (ipv4_header->ip_p==6) { //ip protocol = 6 (TCP)
 
-                struct libnet_tcp_hdr* tcp_header = (struct libnet_tcp_hdr*)(packet+14+(ipv4_header->ip_hl));
+                struct libnet_tcp_hdr* tcp_header = (struct libnet_tcp_hdr*)(packet+14+(ipv4_header->ip_hl)*4);
 
                 //TCP Port 128 = 0x80
                 if (ntohs(tcp_header->th_dport)==128) {
@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
                     printf("<HTTP Packet Starts with>\n");
                     for(int i=0; i<8; i++) {
                         //Ethernet, IPv4, TCP 헤더의 길이를 모두 더한 값의 주소부터는 HTTP 데이터
-                        printf(" %02x", *(packet+14+((ipv4_header->ip_hl))+((tcp_header->th_off))+i));
+                        printf(" %02x", *(packet+14+((ipv4_header->ip_hl)*4)+((tcp_header->th_off)*4)+i));
                     }
                     printf("\n\n");
 
