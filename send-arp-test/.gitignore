@@ -1,5 +1,0 @@
-*.o
-*.sh
-makefile
-*.pro.user
-send-arp-test
