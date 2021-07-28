@@ -55,6 +55,11 @@ void usage() {
 }
 
 int main(int argc, char* argv[]) {
+
+    char track[] = "개발";
+    char name[] = "임창현";
+    printf("[bob10][%s]send-arp[%s]\n", track, name);
+
     if (argc < 3) {
         usage();
         return -1;
