@@ -9,10 +9,12 @@ SOURCES += \
 	ethhdr.cpp \
 	ip.cpp \
 	mac.cpp \
-	main.cpp
+	main.cpp \
+	my_class.cpp
 
 HEADERS += \
 	arphdr.h \
 	ethhdr.h \
 	ip.h \
-	mac.h
+	mac.h \
+	my_class.h

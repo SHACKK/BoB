@@ -2,7 +2,7 @@ LDLIBS=-lpcap
 
 all: send-arp-test
 
-send-arp-test: main.o arphdr.o ethhdr.o ip.o mac.o
+send-arp-test: main.o arphdr.o ethhdr.o ip.o mac.o my_class.o
 	$(LINK.cc) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 clean:
