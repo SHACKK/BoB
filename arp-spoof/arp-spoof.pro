@@ -12,6 +12,7 @@ SOURCES += \
     arphdr.cpp \
     ethhdr.cpp \
     ip.cpp \
+    iphdr.cpp \
     mac.cpp \
     main.cpp \
     my_class.cpp
@@ -20,6 +21,7 @@ HEADERS += \
     arphdr.h \
     ethhdr.h \
     ip.h \
+    iphdr.h \
     mac.h \
     my_class.h
 
