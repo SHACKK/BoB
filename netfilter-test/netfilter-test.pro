@@ -5,10 +5,11 @@ CONFIG -= qt
 
 SOURCES += \
         Ip.cpp \
-        main.c \
-        nfqnl_test.c
+        main.cpp
 
 HEADERS += \
     Ip.h \
     IpHdr.h \
     TcpHdr.h
+
+LIBS += -lnetfilter_queue

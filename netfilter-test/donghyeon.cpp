@@ -5,32 +5,45 @@
 #include <linux/types.h>
 #include <linux/netfilter.h>		/* for NF_ACCEPT */
 #include <errno.h>
+#include <string.h>
+#include <vector>
 
 #include <libnetfilter_queue/libnetfilter_queue.h>
 
-#include "Ip.h"
 #include "IpHdr.h"
+#include "TcpHdr.h"
+
+static bool pass_and_block = true;
+static std::vector<char*> block_list;
 
 void dump(unsigned char* buf, int size) {
-    int i;
-    for (i = 0; i < size; i++) {
-        if (i != 0 && i % 16 == 0)
-            printf("\n");
-        printf("%02X ", buf[i]);
+    IpHdr *iphdr = (IpHdr*)buf;
+    TcpHdr *tcphdr = (TcpHdr*)(buf+iphdr->ihl()*4);
+    int header_length = iphdr->ihl()*4+tcphdr->data_offset()*4;
+    unsigned char* payload = (buf+header_length);
+
+    printf("\n dport : %d\n", tcphdr->dest_port());
+    if (tcphdr->dest_port() == 80 && size - header_length> 0){
+        for (int i = 0; i < block_list.size(); i++){
+            char * result = strstr((char*)payload, block_list[i]);
+            if (result != NULL){
+                pass_and_block = false;
+                return ;
+            }
+        }
     }
-    printf("\n");
+    pass_and_block = true;
 }
 
-
 /* returns packet id */
-static u_int32_t print_pkt (struct nfq_data *tb)
+static uint32_t print_pkt (struct nfq_data *tb)
 {
     int id = 0;
     struct nfqnl_msg_packet_hdr *ph;
     struct nfqnl_msg_packet_hw *hwph;
-    u_int32_t mark,ifi;
+    uint32_t mark, ifi, uid, gid;
     int ret;
-    unsigned char *data;
+    unsigned char *data, *secdata;
 
     ph = nfq_get_msg_packet_hdr(tb);
     if (ph) {
@@ -68,11 +81,22 @@ static u_int32_t print_pkt (struct nfq_data *tb)
     if (ifi)
         printf("physoutdev=%u ", ifi);
 
+    if (nfq_get_uid(tb, &uid))
+        printf("uid=%u ", uid);
+
+    if (nfq_get_gid(tb, &gid))
+        printf("gid=%u ", gid);
+
+    ret = nfq_get_secctx(tb, &secdata);
+    if (ret > 0)
+        printf("secctx=\"%.*s\" ", ret, secdata);
+
     ret = nfq_get_payload(tb, &data);
     if (ret >= 0){
-        printf("payload_len=%d \n", ret);
-        dump(data, ret);
+        dump(data,ret);
+        printf("payload_len=%d ", ret);
     }
+
     fputc('\n', stdout);
 
     return id;
@@ -82,19 +106,37 @@ static u_int32_t print_pkt (struct nfq_data *tb)
 static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
           struct nfq_data *nfa, void *data)
 {
-    u_int32_t id = print_pkt(nfa);
+    uint32_t id = print_pkt(nfa);
     printf("entering callback\n");
-    return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+
+    if (pass_and_block){
+        printf("pass\n");
+        return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+    }else{
+        printf("block\n");
+        return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+    }
+
 }
 
 int main(int argc, char **argv)
 {
     struct nfq_handle *h;
     struct nfq_q_handle *qh;
-    struct nfnl_handle *nh;
     int fd;
     int rv;
+    uint32_t queue = 0;
     char buf[4096] __attribute__ ((aligned));
+
+    if (argc < 2) {
+        printf("syntax : netfilter-test <host> <host1> ...\n");
+        printf("sample : netfilter-test test.gilgil.net\n");
+        return -1;
+    }
+
+    for (int i = 1; i < argc; i++){
+        block_list.push_back(argv[i]);
+    }
 
     printf("opening library handle\n");
     h = nfq_open();
@@ -115,8 +157,8 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    printf("binding this socket to queue '0'\n");
-    qh = nfq_create_queue(h,  0, &cb, NULL);
+    printf("binding this socket to queue '%d'\n", queue);
+    qh = nfq_create_queue(h, queue, &cb, NULL);
     if (!qh) {
         fprintf(stderr, "error during nfq_create_queue()\n");
         exit(1);
@@ -127,6 +169,20 @@ int main(int argc, char **argv)
         fprintf(stderr, "can't set packet_copy mode\n");
         exit(1);
     }
+
+    printf("setting flags to request UID and GID\n");
+    if (nfq_set_queue_flags(qh, NFQA_CFG_F_UID_GID, NFQA_CFG_F_UID_GID)) {
+        fprintf(stderr, "This kernel version does not allow to "
+                "retrieve process UID/GID.\n");
+    }
+
+    printf("setting flags to request security context\n");
+    if (nfq_set_queue_flags(qh, NFQA_CFG_F_SECCTX, NFQA_CFG_F_SECCTX)) {
+        fprintf(stderr, "This kernel version does not allow to "
+                "retrieve security context.\n");
+    }
+
+    printf("Waiting for packets...\n");
 
     fd = nfq_fd(h);
 
@@ -139,7 +195,7 @@ int main(int argc, char **argv)
         /* if your application is too slow to digest the packets that
          * are sent from kernel-space, the socket buffer that we use
          * to enqueue packets may fill up returning ENOBUFS. Depending
-         * on your application, this error may be ignored. nfq_nlmsg_verdict_putPlease, see
+         * on your application, this error may be ignored. Please, see
          * the doxygen documentation of this library on how to improve
          * this situation.
          */
@@ -165,5 +221,3 @@ int main(int argc, char **argv)
     nfq_close(h);
 
     exit(0);
-}
-
